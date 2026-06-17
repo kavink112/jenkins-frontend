@@ -1,77 +1,54 @@
-pipeline{
+pipeline {
     agent any
-    
-    environment{
-        AWS_REGION = "eu-north-1"
-        S3_BUCKET = "demo12091923"
-        CLOUDFRONT_DISTRIBUTION_ID = "E202ALDHVTXK81"
+ 
+    environment {
+        AWS_DEFAULT_REGION = 'eu-north-1'
+        S3_BUCKET = 'front-demo-pro'
+        CLOUDFRONT_DISTRIBUTION_ID = 'E9OL989T16KEQ'
     }
-    
-    options {
-        timestamps()
-    }
-    
-    stages{
-        
-        stage('checkout code') {
+ 
+    stages {
+        stage('Clone Frontend Repo') {
             steps {
-                git branch: 'main',
-                credentialsId: 'github-token-creds',
-                url: 'https://github.com/greeshmagp19-creator/jenkins-frontend.git'
+                git branch: 'main', 
+                credentialsId: 'github-creds', 
+                url: 'https://github.com/kavink112/jenkins-frontend.git'
             }
         }
-        
-        stage('check node & NPM') {
-            steps{
+ 
+        stage('Install & Build') {
+            steps {
                 sh '''
-                  node -v
-                  npm -v
+                
+                rm -rf node_modules package-lock.json
+ 
+                npm install --legacy-peer-deps || true
+ 
+                npm run build
+                
                 '''
             }
         }
-        
-        stage ('build') {
-            steps {
-                sh 'npm install'
-                sh 'npm run build'
-            }
-        }
-        stage ('verify build output') {
-            steps {
-                 sh 'ls -la build'
-            }
-        }
-        stage('deploy to s3'){
-            
-            steps {
-                withAWS(credentials: 'aws-credentials', region: "${AWS_REGION}") {
-                    sh 'aws s3 sync build/ s3://${S3_BUCKET}/ --delete'
-                }
-                
-            }
-        }
-        stage('invalidate cloudfront'){
-            when {
-                expression { env.CLOUDFRONT_DISTRIBUTION_ID = "E202ALDHVTXK81" }
-            }
-            steps {
-                withAWS(credentials: 'aws-credentials', region: "${AWS_REGION}") {
-                    sh '''aws cloudfront create-invalidation \\
-                        --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} \\
-                        --paths "/*"'''
-                }
-                
-            }
-            
-        }
-            
-    }
-    post {
-        success {
-            echo "✅ Frontend deployed successfully!"
-        }
-        failure {
-            echo "❌ Pipeline failed. Check logs."
+ 
+        stage('deploy to s3') {
+    steps {
+        withCredentials([aws(credentialsId: 'your-aws-credentials-id', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+            // Your AWS CLI upload command here, for example:
+            sh 'aws s3 sync build/ s3://your-bucket-name'
         }
     }
 }
+
+ 
+        stage('Invalidate CloudFront') {
+            steps {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'aws-creds', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh '''
+                    aws cloudfront create-invalidation \
+                      --distribution-id $CLOUDFRONT_DISTRIBUTION_ID \
+                      --paths "/*"
+                    '''
+                }
+            }
+        }
+    }
