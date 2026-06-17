@@ -30,15 +30,15 @@ pipeline {
             }
         }
  
-        stage('deploy to s3') {
-    steps {
-        withCredentials([aws(credentialsId: 'your-aws-credentials-id', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            // Your AWS CLI upload command here, for example:
-            sh 'aws s3 sync build/ s3://your-bucket-name'
+        stage('Deploy to S3') {
+            steps {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'aws-creds',  secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh '''
+                    aws s3 sync ./out s3://$S3_BUCKET --delete
+                    '''
+                }
+            }
         }
-    }
-}
-
  
         stage('Invalidate CloudFront') {
             steps {
@@ -52,3 +52,4 @@ pipeline {
             }
         }
     }
+}
